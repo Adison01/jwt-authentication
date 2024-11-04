@@ -4,6 +4,7 @@ const router = Router();
 const { check, validationResult } = require("express-validator"); // note : link to know more about express-validator > express-validator.github.io/docs/
 const { users } = require("../db");
 const bcrypt = require("bcrypt");
+const JWT = require("jsonwebtoken");
 
 router.post(
   "/signup",
@@ -27,24 +28,48 @@ router.post(
       return user.email === email;
     });
     if (user) {
-      res.status(400).json({ message: "user already exist !" });
+      return res.status(400).json({ message: "user already exist !" });
     }
     let hashedPassword = await bcrypt.hash(password, 10);
     users.push({
       email,
       password: hashedPassword,
     });
-    console.log(hashedPassword);
+    const token = await JWT.sign({ email }, "aaa", { expiresIn: 3600000 });
 
-    res.send("validation pass");
+    res.send({
+      token,
+    });
   }
 );
 
-router.get('/all', (req, res)=>{
-res.json(users)
-})
+router.post("/login", async (req, res) => {
+  const { password, email } = req.body;
+  let user = users.find((user) => {
+  return  user.email === email;
+  });
+  if (!user) {
+  return  res.status(400).json({
+      message: "Invalid Credentials email!",
+    });
+  }
+  let isMatch = await bcrypt.compare(password, user.password);
 
+  console.log(password, user.password)
 
+  if (!isMatch) {
+   return  res.status(400).json({
+      message: "Invalid Credentials password",
+    });
+  }
+  const token = await JWT.sign({ email }, "aaa", { expiresIn: 3600000 });
+  res.send({
+    token,
+  });
+});
 
+router.get("/all", (req, res) => {
+  res.json(users);
+});
 
 module.exports = router;
